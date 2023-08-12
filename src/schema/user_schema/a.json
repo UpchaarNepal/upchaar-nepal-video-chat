@@ -1,0 +1,14 @@
+{
+	"accountStatus": "Active",
+	"countryCode": "+1234",
+	"subscriptionStatus": "Not Started",
+	"gender": "Other",
+	"subscriptionId": "abc123",
+	"firstName": "John",
+	"lastName": "Doe",
+	"affiliationAs": "Doctor",
+	"licenseNumber": 123456,
+	"profilePicturePath": "path/to/profile/picture.jpg",
+	"phoneNumber": "12345678",
+	"subscribeNewsletter": true
+}
