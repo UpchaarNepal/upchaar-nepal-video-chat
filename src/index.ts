@@ -1,79 +1,62 @@
-import * as bodyParser from 'body-parser';
-import express, { Express, Request, Response } from 'express';
-import responseTime from 'response-time';
-import log from 'pino-http';
+import express from 'express';
+import cors from 'cors';
+// import { Server as SocketServer, Socket } from 'socket.io';
+import http from 'http';
 import helmet from 'helmet';
-import i18next from 'i18next';
-import Backend from 'i18next-fs-backend'
-import i18middelware from 'i18next-http-middleware'
+import favicon from 'serve-favicon';
+import path from 'path';
 
-import { errorHandler, notAvailableRouteErrorHandler } from './errorhandler/handler.error';
-import { restResponseTimeHistogram, startMetricsServer } from './metrics/metrics';
-import serviceRouter from './routers/users_routers/service.routes'
+// import { errorHandler, errorConverter } from './errorhandler/error';
+import morganMiddleWare from './features/logger_module/morgan';
+// import routerModule from './routers';
 // import swaggerDocs from './swagger/swagger';
+// import logger from '../src/features/logger_module/winston-logger';
+import { initializeSocket } from './socket';
+import { errorHandler, notAvailableRouteErrorHandler } from './errorhandler/handler.error';
+import { stream } from './ws/stream';
+
+// import * as socketio from "socket.io";
+
+const app = express();
+
+app.use(cors());
+
+// set security HTTP headers
+app.use(helmet.hsts({ maxAge: 31536000 }));
 
 
+app.use(
+	express.json({
+		// verify: (req: Request, res: Response, buffer) => (req.body = buffer),
+		limit: '3000mb',
+	}),
+);
 
-
-// Creates and configures an ExpressJS web server.
-class App {
-  // ref to Express instance
-  express: Express;
-  // Run configuration methods on the Express instance.
-  constructor() {
-    this.express = express();
-    i18next.use(Backend).use(i18middelware.LanguageDetector).init({
-      fallbackLng: 'en',
-      backend: {
-        loadPath: './locales/{{lng}}.json'
-      }
-    });
-    this.middleware();
-
-    this.routes();
-
-    // startMetricsServer();
-
-    // swaggerDocs(this.express, 8000);
-
-    this.express.use(errorHandler);
-
-    this.express.use(notAvailableRouteErrorHandler);
-
-  }
-
-  // Configure Express middleware.
-  private middleware(): void {
-    // Initialize i18n
-
-    this.express.use(bodyParser.json());
-    this.express.use(bodyParser.urlencoded({ extended: false }));
-    this.express.use(log());
-    this.express.use(helmet());
-    this.express.use(i18middelware.handle(i18next));
-
-    this.express.use(responseTime((req: Request, res: Response, time: number) => {
-      if (req?.route?.path) {
-        restResponseTimeHistogram.observe(
-          {
-            method: req.method,
-            route: req.route.path,
-            status_code: res.statusCode
-          },
-          time * 1000
-        );
-      }
-    }));
-
-  }
-  
-  // Configure API endpoints.
-  private routes(): void {
-    /* API endpoints */
-    this.express.use('/api/v0', serviceRouter);
-
-  }
-
+if (process.env.NODE_ENV !== 'test') {
+	app.use(morganMiddleWare.successHandler);
+	app.use(morganMiddleWare.errorHandler);
 }
 
-export default new App().express;
+app.use(express.urlencoded({ limit: '3000mb', extended: true }));
+app.use( favicon( path.join( __dirname, 'favicon.ico' ) ) );
+app.use( '/assets', express.static( path.join( __dirname, 'assets' ) ) );
+
+// Configure for socket connection
+// let http = require("http").Server(app);
+
+const server = http.createServer(app);
+
+// let io = require("socket.io")(http);
+
+app.get( '/', ( req, res ) => {
+    res.sendFile( __dirname + '/index.html' );
+} );
+// Connect Socket.IO
+initializeSocket(server ,stream);
+
+
+app.use(errorHandler);
+app.use(notAvailableRouteErrorHandler);
+
+
+export default app;
